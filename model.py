@@ -8,6 +8,9 @@ import nltk.stem.wordnet
 
 import sklearn.cluster
 
+from gensim.test.utils import datapath, get_tmpfile
+from gensim.models import KeyedVectors
+from gensim.scripts.glove2word2vec import glove2word2vec
 
 class WordEmbedding(object):
 
@@ -18,8 +21,13 @@ class WordEmbedding(object):
             warnings.simplefilter('ignore', UserWarning)
             import gensim.models.word2vec
 
+        glove_file = datapath('/home/jovyan/work/glove embeddings/glove.6B.100d.txt')
+        tmp_file = get_tmpfile("/home/jovyan/work/glove embeddings/glove.6B.100d__Word2Vec.txt")
+        _ = glove2word2vec(glove_file, tmp_file)
+        self.model = KeyedVectors.load_word2vec_format(tmp_file)
+
         # Load the model.
-        self.model = gensim.models.word2vec.Word2Vec.load(filename)
+        # self.model = gensim.models.word2vec.Word2Vec.load(filename)
 
         # Reduce the memory footprint since we will not be training.
         self.model.init_sims(replace=True)
@@ -44,6 +52,8 @@ class WordEmbedding(object):
             return 'theater'
         if word in ('alp', 'alps', 'apline', 'alpinist'):
             return 'alp'
+        print(word)
+        # return self.lemmatizer.lemmatize(str(word, 'UTF-8')).encode('ascii', 'ignore')
         return self.lemmatizer.lemmatize(word).encode('ascii', 'ignore')
 
 
@@ -62,6 +72,8 @@ class WordEmbedding(object):
         illegal_stems = set([self.get_stem(word) for word in illegal_words])
 
         # Get the internal indices and normalized vectors for each word.
+        # import ipdb
+        # ipdb.set_trace()
         clue_indices = [self.model.vocab[word].index for word in clue_words]
         clue_vectors = self.model.syn0norm[clue_indices]
         pos_indices = [self.model.vocab[word].index for word in pos_words]

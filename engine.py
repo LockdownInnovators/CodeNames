@@ -24,7 +24,8 @@ class GameEngine(object):
         # TODO: Max length of 11 is hardcoded here and in print_board()
         with open(config.word_list) as f:
             _words = [line.rstrip().lower().replace(' ', '_') for line in f.readlines()]
-        self.words = np.array(_words, dtype='S11')
+        self.words = np.array(_words)
+        
 
         # Initialize our word embedding model if necessary.
         self.model = model.WordEmbedding(config.embedding)
@@ -122,7 +123,7 @@ class GameEngine(object):
             if platform.system() == 'Windows':
                 os.system('cls')
             else:
-                sys.stdout.write(chr(27) + '[2J')
+                print(chr(27) + '[2J')
 
         board = self.board.reshape(self.size, self.size)
         owner = self.owner.reshape(self.size, self.size)
@@ -138,8 +139,8 @@ class GameEngine(object):
                     tag = ' '
                 if not spymaster or owner[row, col] in (0, 1, 2):
                     word = word.upper()
-                sys.stdout.write('{0}{1:11s} '.format(tag, word))
-            sys.stdout.write('\n')
+                print('{0}{1:11s} '.format(tag, word))
+            print('\n')
 
     def play_computer_spymaster(self, gamma=1.0, verbose=True):
 
@@ -163,7 +164,7 @@ class GameEngine(object):
                     best_score.append(score * bonus_factor)
                     saved_clues.append((clue, words))
         num_clues = len(saved_clues)
-        order = sorted(xrange(num_clues), key=lambda k: best_score[k], reverse=True)
+        order = sorted(range(num_clues), key=lambda k: best_score[k], reverse=True)
 
         if verbose:
             self.print_board(spymaster=True)
@@ -287,12 +288,12 @@ class GameEngine(object):
 
 
 def say(message):
-    sys.stdout.write((message + '\n').encode('utf8'))
+    print((message + '\n').encode('utf8'))
 
 
 def ask(message):
     try:
-        return raw_input(message)
+        return input(message)
     except KeyboardInterrupt:
         say('\nBye.')
         sys.exit(0)
