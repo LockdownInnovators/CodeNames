@@ -45,7 +45,7 @@ def fetch(word, min_size=5e6):
         # Read all page titles.
         page_titles = [line.rstrip() for line in f_in]
         # Generate a random order of page titles.
-        order = range(len(page_titles))
+        order = list(range(len(page_titles)))
         random.shuffle(order)
         print('Fetching from {0} pages for {1}.'.format(len(page_titles), word))
 

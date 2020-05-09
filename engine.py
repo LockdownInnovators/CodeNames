@@ -18,7 +18,7 @@ UNLIMITED = "unlimited"
 # noinspection PyAttributeOutsideInit
 class GameEngine(object):
 
-    def __init__(self, seed=None, expert=False):
+    def __init__(self, seed=None, expert=False, word2vec=None):
 
         # Load our word list if necessary.
         # TODO: Max length of 11 is hardcoded here and in print_board()
@@ -28,7 +28,7 @@ class GameEngine(object):
         
 
         # Initialize our word embedding model if necessary.
-        self.model = model.WordEmbedding(config.embedding)
+        self.model = model.WordEmbedding(word2vec)
 
         # Initialize random numbers.
         self.generator = np.random.RandomState(seed=seed)

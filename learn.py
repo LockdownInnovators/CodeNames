@@ -80,7 +80,7 @@ def main():
                         sentences.append(line)
 
             # Shuffle sentences for this pair of words into a random order.
-            sentence_order = range(len(sentences))
+            sentence_order = list(range(len(sentences)))
             random.shuffle(sentence_order)
 
             # Save shuffled sentences to the output corpus file.
@@ -120,7 +120,7 @@ def main():
         model.alpha = alpha_start
         model.min_alpha = alpha_stop
         # Continue training.
-        model.train(sentences)
+        model.train(sentences, total_examples=model.corpus_count, epochs=model.epochs)
     else:
         # Train a new model.
         model = gensim.models.word2vec.Word2Vec(

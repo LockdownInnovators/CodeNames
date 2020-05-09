@@ -8,26 +8,19 @@ import nltk.stem.wordnet
 
 import sklearn.cluster
 
-from gensim.test.utils import datapath, get_tmpfile
-from gensim.models import KeyedVectors
-from gensim.scripts.glove2word2vec import glove2word2vec
-
 class WordEmbedding(object):
 
-    def __init__(self, filename):
+    def __init__(self, model):
         # Import gensim here so we can mute a UserWarning about the Pattern
         # library not being installed.
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', UserWarning)
             import gensim.models.word2vec
 
-        glove_file = datapath('/home/jovyan/work/glove embeddings/glove.6B.100d.txt')
-        tmp_file = get_tmpfile("/home/jovyan/work/glove embeddings/glove.6B.100d__Word2Vec.txt")
-        _ = glove2word2vec(glove_file, tmp_file)
-        self.model = KeyedVectors.load_word2vec_format(tmp_file)
-
-        # Load the model.
-        # self.model = gensim.models.word2vec.Word2Vec.load(filename)
+        if isinstance(model, str):
+            self.model = gensim.models.word2vec.Word2Vec.load(model)
+        else:
+            self.model = model
 
         # Reduce the memory footprint since we will not be training.
         self.model.init_sims(replace=True)
@@ -52,10 +45,33 @@ class WordEmbedding(object):
             return 'theater'
         if word in ('alp', 'alps', 'apline', 'alpinist'):
             return 'alp'
-        print(word)
-        # return self.lemmatizer.lemmatize(str(word, 'UTF-8')).encode('ascii', 'ignore')
         return self.lemmatizer.lemmatize(word).encode('ascii', 'ignore')
 
+    def get_closest(self, clue_words, pos_words, neg_words, veto_words):
+        illegal_words = list(pos_words) + list(neg_words) + list(veto_words)
+        illegal_stems = set([self.get_stem(word) for word in illegal_words])
+
+        # Get the internal indices and normalized vectors for each word.
+        clue_indices = [self.model.wv.vocab[word].index for word in clue_words]
+        clue_vectors = self.model.wv.syn0norm[clue_indices]
+        pos_indices = [self.model.wv.vocab[word].index for word in pos_words]
+        pos_vectors = self.model.wv.syn0norm[pos_indices]
+        neg_indices = [self.model.wv.vocab[word].index for word in neg_words]
+        neg_vectors = self.model.wv.syn0norm[neg_indices]
+        veto_indices = [self.model.wv.vocab[word].index for word in veto_words]
+        veto_vectors = self.model.wv.syn0norm[veto_indices]
+
+        # Find the normalized mean of the words in the clue group.
+        mean_vector = clue_vectors.mean(axis=0)
+        mean_vector /= np.sqrt(mean_vector.dot(mean_vector))
+
+        # Calculate the cosine distances between the mean vector and all
+        # the words in our vocabulary.
+        cosines = np.dot(self.model.wv.syn0norm[:, np.newaxis],
+                         mean_vector).reshape(-1)
+
+        # Sort the vocabulary by decreasing cosine similarity with the mean.
+        return np.argsort(cosines)[::-1]
 
     def get_clue(self, clue_words, pos_words, neg_words, veto_words,
                  veto_margin=0.2, num_search=100, verbose=0):
@@ -67,33 +83,7 @@ class WordEmbedding(object):
             print(' NEG:', neg_words)
             print('VETO:', veto_words)
 
-        # Initialize the list of illegal clues.
-        illegal_words = list(pos_words) + list(neg_words) + list(veto_words)
-        illegal_stems = set([self.get_stem(word) for word in illegal_words])
-
-        # Get the internal indices and normalized vectors for each word.
-        # import ipdb
-        # ipdb.set_trace()
-        clue_indices = [self.model.vocab[word].index for word in clue_words]
-        clue_vectors = self.model.syn0norm[clue_indices]
-        pos_indices = [self.model.vocab[word].index for word in pos_words]
-        pos_vectors = self.model.syn0norm[pos_indices]
-        neg_indices = [self.model.vocab[word].index for word in neg_words]
-        neg_vectors = self.model.syn0norm[neg_indices]
-        veto_indices = [self.model.vocab[word].index for word in veto_words]
-        veto_vectors = self.model.syn0norm[veto_indices]
-
-        # Find the normalized mean of the words in the clue group.
-        mean_vector = clue_vectors.mean(axis=0)
-        mean_vector /= np.sqrt(mean_vector.dot(mean_vector))
-
-        # Calculate the cosine distances between the mean vector and all
-        # the words in our vocabulary.
-        cosines = np.dot(self.model.syn0norm[:, np.newaxis],
-                         mean_vector).reshape(-1)
-
-        # Sort the vocabulary by decreasing cosine similarity with the mean.
-        closest = np.argsort(cosines)[::-1]
+        closest = self.get_closest(clue_words, pos_words, neg_words, veto_words)
 
         # Select the clue whose minimum cosine from the words is largest
         # (i.e., smallest maximum distance).
@@ -101,7 +91,7 @@ class WordEmbedding(object):
         max_min_cosine = -2.
         for i in range(num_search):
             clue_index = closest[i]
-            clue = self.model.index2word[clue_index]
+            clue = self.model.wv.index2word[clue_index]
             # Ignore clues with the same stem as an illegal clue.
             if self.get_stem(clue) in illegal_stems:
                 continue
@@ -116,7 +106,7 @@ class WordEmbedding(object):
                 continue
             # Calculate the cosine similarity of this clue with all of the
             # positive, negative and veto words.
-            clue_vector = self.model.syn0norm[clue_index]
+            clue_vector = self.model.wv.syn0norm[clue_index]
             clue_cosine = np.dot(clue_vectors[:, np.newaxis], clue_vector)
             neg_cosine = np.dot(neg_vectors[:, np.newaxis], clue_vector)
             veto_cosine = np.dot(veto_vectors[:, np.newaxis], clue_vector)
@@ -164,7 +154,7 @@ class WordEmbedding(object):
         num_words = len(words)
         X = np.empty((num_words, self.model.vector_size))
         for i, word in enumerate(words):
-            X[i] = self.model.syn0norm[self.model.vocab[word].index]
+            X[i] = self.model.wv.syn0norm[self.model.wv.vocab[word].index]
 
         for num_clusters in range(1, num_words):
             kmeans = sklearn.cluster.KMeans(num_clusters).fit(X)
