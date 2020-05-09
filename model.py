@@ -179,3 +179,18 @@ class WordEmbedding(object):
         for label in set(db.labels_):
             members = words[db.labels_ == label]
             print('{0}: {1}'.format(label, members))
+
+    def get_closest_board_words_to(self, clue, clue_count, all_visible_words):
+        all_visible_words_indices = [self.model.wv.vocab[word].index for word in all_visible_words]
+        all_visible_words_vectors = self.model.wv.syn0norm[all_visible_words_indices]
+        clue_index = self.model.wv.vocab[clue].index
+        clue_vector = self.model.wv.syn0norm[clue_index]
+
+        cosines = np.dot(all_visible_words_vectors,
+                         clue_vector).reshape(-1)
+        closest = np.argsort(cosines)[::-1]
+        guesses_indices = []
+        for i in range(0, clue_count):
+            guesses_indices.append(closest[i])
+        return all_visible_words[guesses_indices]
+

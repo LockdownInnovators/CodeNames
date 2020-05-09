@@ -139,8 +139,8 @@ class GameEngine(object):
                     tag = ' '
                 if not spymaster or owner[row, col] in (0, 1, 2):
                     word = word.upper()
-                print('{0}{1:11s} '.format(tag, word))
-            print('\n')
+                print('{0}{1:11s} '.format(tag, word), end='')
+            print('')
 
     def play_computer_spymaster(self, gamma=1.0, verbose=True):
 
@@ -150,7 +150,7 @@ class GameEngine(object):
         # Loop over all permutations of words.
         num_words = len(self.player_words)
         best_score, saved_clues = [], []
-        for count in range(num_words, 0, -1):
+        for count in range(max(num_words, 2), 0, -1):
             # Multiply similarity scores by this factor for any clue
             # corresponding to this many words.
             bonus_factor = count ** gamma
@@ -247,6 +247,38 @@ class GameEngine(object):
 
         return True
 
+    def play_computer_team(self, word, count):
+        num_guesses = 0
+        say(u'{0} (computer) your clue is: {1} {2}'.format(self.player_label, word, count))
+        guesses = self.model.get_closest_board_words_to(word, count, self.player_words)
+        for guess in guesses:
+            num_guesses += 1
+            say(f'Computer guess #{num_guesses}: {guess}')
+            loc = np.where(self.board == guess)[0]
+            self.visible[loc] = False
+
+            if guess == self.assassin_word:
+                say('{0} (computer) guessed the assasin - game over!'.format(self.player_label))
+                return False
+
+            if guess in self.player_words:
+                self.unfound_words[self.player].discard(guess)
+                if num_guesses == len(self.player_words):
+                    say('{0} (computer) You won!!!'.format(self.player_label))
+                    return False
+                else:
+                    ask('{0} Congratulations computer, keep going! (hit ENTER)\n'.format(self.player_label))
+            else:
+                if guess in self.opponent_words:
+                    ask('{0} Sorry computer, word from opposing team! (hit ENTER)\n'.format(self.player_label))
+                else:
+                    ask('{0} Sorry computer, bystander! (hit ENTER)\n'.format(self.player_label))
+                break
+
+        return True
+
+
+
     def next_turn(self):
         self.num_turns += 1
 
@@ -270,7 +302,7 @@ class GameEngine(object):
         if team == 'human':
             ongoing = self.play_human_team(word, count)
         else:
-            raise NotImplementedError()
+            ongoing = self.play_computer_team(word, count)
 
         return ongoing
 
