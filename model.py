@@ -57,8 +57,6 @@ class WordEmbedding(object):
             print(' NEG:', neg_words)
             print('VETO:', veto_words)
 
-        closest = self.get_closest(clue_words, pos_words, neg_words, veto_words)
-
         illegal_words = list(pos_words) + list(neg_words) + list(veto_words)
         illegal_stems = set([self.get_stem(word) for word in illegal_words])
 
