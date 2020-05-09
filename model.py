@@ -48,9 +48,6 @@ class WordEmbedding(object):
         return self.lemmatizer.lemmatize(word).encode('ascii', 'ignore')
 
     def get_closest(self, clue_words, pos_words, neg_words, veto_words):
-        illegal_words = list(pos_words) + list(neg_words) + list(veto_words)
-        illegal_stems = set([self.get_stem(word) for word in illegal_words])
-
         # Get the internal indices and normalized vectors for each word.
         clue_indices = [self.model.wv.vocab[word].index for word in clue_words]
         clue_vectors = self.model.wv.syn0norm[clue_indices]
@@ -84,6 +81,9 @@ class WordEmbedding(object):
             print('VETO:', veto_words)
 
         closest = self.get_closest(clue_words, pos_words, neg_words, veto_words)
+
+        illegal_words = list(pos_words) + list(neg_words) + list(veto_words)
+        illegal_stems = set([self.get_stem(word) for word in illegal_words])
 
         # Select the clue whose minimum cosine from the words is largest
         # (i.e., smallest maximum distance).
