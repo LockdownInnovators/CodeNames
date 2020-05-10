@@ -18,17 +18,18 @@ UNLIMITED = "unlimited"
 # noinspection PyAttributeOutsideInit
 class GameEngine(object):
 
-    def __init__(self, seed=None, expert=False, word2vec=None):
+    def __init__(self, seed=None, expert=False, word2vec_models=None):
 
         # Load our word list if necessary.
         # TODO: Max length of 11 is hardcoded here and in print_board()
+        if word2vec_models is None:
+            word2vec_models = {}
         with open(config.word_list) as f:
             _words = [line.rstrip().lower().replace(' ', '_') for line in f.readlines()]
         self.words = np.array(_words)
-        
 
-        # Initialize our word embedding model if necessary.
-        self.model = model.WordEmbedding(word2vec)
+        # Initialize our word embedding models.
+        self.models = {k: model.WordEmbedding(w2v) for k, w2v in word2vec_models.items()}
 
         # Initialize random numbers.
         self.generator = np.random.RandomState(seed=seed)
@@ -156,10 +157,12 @@ class GameEngine(object):
             bonus_factor = count ** gamma
             for group in itertools.combinations(range(num_words), count):
                 words = self.player_words[list(group)]
-                clue, score = self.model.get_clue(clue_words=words,
-                                                  pos_words=self.player_words,
-                                                  neg_words=np.concatenate((self.opponent_words, self.neutral_words)),
-                                                  veto_words=self.assassin_word)
+                clue, score = self.models[f'{self.player + 1} Master'].get_clue(clue_words=words,
+                                                                          pos_words=self.player_words,
+                                                                          neg_words=np.concatenate((
+                                                                              self.opponent_words,
+                                                                              self.neutral_words)),
+                                                                          veto_words=self.assassin_word)
                 if clue:
                     best_score.append(score * bonus_factor)
                     saved_clues.append((clue, words))
@@ -250,7 +253,7 @@ class GameEngine(object):
     def play_computer_team(self, word, count):
         num_guesses = 0
         say(u'{0} (computer) your clue is: {1} {2}'.format(self.player_label, word, count))
-        guesses = self.model.get_closest_board_words_to(word, count, self.player_words)
+        guesses = self.models[f'{self.player + 1} Guesser'].get_closest_board_words_to(word, count, self.player_words)
         for guess in guesses:
             num_guesses += 1
             say(f'Computer guess #{num_guesses}: {guess}')
@@ -276,8 +279,6 @@ class GameEngine(object):
                 break
 
         return True
-
-
 
     def next_turn(self):
         self.num_turns += 1
